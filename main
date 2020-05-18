@@ -1,0 +1,81 @@
+#include <Adafruit_Sensor.h>
+#include <Adafruit_LSM9DS1.h>
+#include <Servo.h>
+
+Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();  // i2c sensor
+
+Servo servo1;
+Servo servo2;
+
+
+//PID tuning constants
+
+float P = 0.0;
+float I = 0.0;
+float D = 0.0;
+
+//holy grail servo angle
+
+int roh;
+
+//static constants
+
+float momentInertia = 0.0;
+float finDistance = 0.0;
+float liftConstant = 0.0;
+
+//variables that update every loop
+
+float velocity;
+float deltaTime;
+float deltaRotation;
+float integralRotation;
+
+
+void setup() {
+
+//attach pins
+
+servo1.attach(7);
+servo2.attach(8);
+
+//set servos to neutral position
+
+servo1.write(90);
+servo2.write(90);
+
+
+lsm.begin();
+lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_16G);
+lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
+
+}
+
+void loop() {
+
+//deltaTime is an approximation of dt
+
+deltaTime = (millis() / 1000) - deltaTime;
+
+
+//this asks the board what the acceleration and rotation rate values are at this point
+
+lsm.read();
+
+
+sensors_event_t accel, magn, gyro, temp;
+
+lsm.getEvent(&accel, &magn, &gyro, &temp);
+
+
+//calculates the estimated velocity of the rocket aswell as the PID derivative and integral
+
+velocity = (deltaTime * accel.acceleration.x) + velocity;
+deltaRotation = (gyro.gyro.x / deltaTime)- deltaRotation;
+integralRotation = (gyro.gyro.x * deltaTime) + integralRotation;
+
+roh = 90 + 6 * I * (P * gyro.gyro.x + I * integralRotation + D * deltaRotation) / (2 * liftConstant * finDistance * velocity * velocity); // calculates servo write angle based on PID values, given constants, velocity and rotation rate
+
+servo1.write(roh);
+servo2.write(roh);
+}
